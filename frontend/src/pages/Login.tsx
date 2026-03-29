@@ -23,7 +23,7 @@ const Login = () => {
       formData.append("username", email);
       formData.append("password", password);
 
-      const response = await fetch("http://localhost:8000/api/v1/auth/login", {
+      const response = await fetch("http://127.0.0.1:8000/api/v1/auth/login", {
         method: "POST",
         body: formData,
       });

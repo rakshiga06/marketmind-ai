@@ -1,116 +1,133 @@
-import yfinance as yf
+import talib
 import pandas as pd
 import numpy as np
-import talib
+from typing import List, Dict, Any
 
-def get_real_pattern_signals(symbol: str) -> dict:
+def get_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Add basic indicators to the dataframe."""
+    df = df.copy()
+    # Flatten MultiIndex columns if present
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+        
+    close = df['Close'].values.flatten()
+    df['SMA50'] = talib.SMA(close, timeperiod=50)
+    df['SMA200'] = talib.SMA(close, timeperiod=200)
+    df['RSI'] = talib.RSI(close, timeperiod=14)
+    return df
+
+def detect_golden_cross(df: pd.DataFrame) -> pd.Series:
+    """SMA 50 crosses above SMA 200."""
+    return (df['SMA50'] > df['SMA200']) & (df['SMA50'].shift(1) <= df['SMA200'].shift(1))
+
+def detect_rsi_divergence(df: pd.DataFrame) -> pd.Series:
+    """Price making lower lows, RSI making higher lows (Bullish Divergence)."""
+    close = df['Close'].values.flatten()
+    rsi = df['RSI'].values.flatten()
+    
+    # 14-day lookback for divergence
+    price_lower = close < pd.Series(close).shift(14).values
+    rsi_higher = rsi > pd.Series(rsi).shift(14).values
+    rsi_oversold = rsi < 35 
+    
+    return pd.Series(price_lower & rsi_higher & rsi_oversold, index=df.index)
+
+def detect_resistance_breakout(df: pd.DataFrame) -> pd.Series:
+    """Price breaks above the maximum of the last 50 days resistance."""
+    high = df['High'].values.flatten()
+    close = df['Close'].values.flatten()
+    resistance = pd.Series(high).shift(1).rolling(window=50).max().values
+    return pd.Series((close > resistance) & (pd.Series(close).shift(1).values <= resistance), index=df.index)
+
+def detect_head_and_shoulders(df: pd.DataFrame) -> pd.Series:
     """
-    1. Fetches real 5-year OHLCV data.
-    2. Detects Golden Cross, RSI Divergence, Support Break, Volume Spike using TA-Lib.
-    3. Backtests on last 5 years: counts occurrences, avg 60-day return, and win rate (10%+).
-    4. Calculates confidence from win rate.
+    Simplified H&S detection based on peaks.
+    Looks for: Left Shoulder (Peak 1), Head (Higher Peak 2), Right Shoulder (Lower Peak 3).
     """
-    try:
-        if not symbol.endswith(".NS") and not symbol.endswith(".BO"):
-            query_symbol = symbol + ".NS"
-        else:
-            query_symbol = symbol
-            
-        # Fetch 5 years of data for deep backtesting
-        data = yf.Ticker(query_symbol).history(period="5y")
+    close = df['Close'].values.flatten()
+    signals = pd.Series(False, index=df.index)
+    
+    # Needs at least 60 days
+    if len(close) < 60:
+        return signals
         
-        if len(data) < 200:
-            return {"patterns": [], "message": "Not enough historical data (need 200 days) for significant pattern detection."}
-            
-        c = data['Close']
-        h = data['High']
-        l = data['Low']
-        v = data['Volume']
+    for i in range(40, len(close)):
+        window = close[i-40:i]
+        # Find local maxima in the window
+        # This is a basic approximation
+        peaks = []
+        for j in range(1, len(window)-1):
+            if window[j] > window[j-1] and window[j] > window[j+1]:
+                peaks.append((j, window[j]))
         
-        patterns_found = []
-        forward_days = 60
+        if len(peaks) >= 3:
+            # Sort peaks by time
+            peaks.sort(key=lambda x: x[0])
+            # Look for H&S pattern in the last 3 peaks
+            p1, p2, p3 = peaks[-3:]
+            # Head (p2) should be higher than shoulders (p1, p3)
+            if p2[1] > p1[1] and p2[1] > p3[1]:
+                # Shoulders should be roughly similar height (within 5%)
+                if abs(p1[1] - p3[1]) / p1[1] < 0.05:
+                    # Breakout (neckline) check: current price crosses below the trough between peaks
+                    troughs = []
+                    for k in range(p1[0], p3[0]):
+                        if window[k] < window[k-1] and window[k] < window[k+1]:
+                            troughs.append(window[k])
+                    if troughs:
+                        neckline = min(troughs)
+                        if window[-1] < neckline and window[-2] >= neckline:
+                            signals.iloc[i] = True
+                            
+    return signals
+
+def detect_cup_and_handle(df: pd.DataFrame) -> pd.Series:
+    """
+    Simplified Cup and Handle detection.
+    Looks for a 'U' shape followed by a small consolidation.
+    """
+    close = df['Close'].values
+    signals = pd.Series(False, index=df.index)
+    
+    if len(close) < 100:
+        return signals
         
-        # --- 1. Golden Cross ---
-        sma50 = talib.SMA(c, timeperiod=50)
-        sma200 = talib.SMA(c, timeperiod=200)
-        golden_cross = (sma50 > sma200) & (sma50.shift(1) <= sma200.shift(1))
+    for i in range(80, len(close)):
+        # Entire pattern window
+        window = close[i-80:i]
         
-        # --- 2. RSI Divergence ---
-        rsi = talib.RSI(c, timeperiod=14)
-        # Price making lower lows but RSI making higher lows (14-day lookback for divergence)
-        price_lower = c < c.shift(14)
-        rsi_higher = rsi > rsi.shift(14)
-        rsi_oversold = rsi < 40  # Typically divergence matters near oversold
-        rsi_divergence = price_lower & rsi_higher & rsi_oversold
+        # Split into cup (first 70%) and handle (last 30%)
+        cup_idx = int(len(window) * 0.7)
+        cup = window[:cup_idx]
+        handle = window[cup_idx:]
         
-        # --- 3. Support Break ---
-        support_20d = l.shift(1).rolling(20).min()
-        support_break = c < support_20d
+        # Cup characteristics: U-shape
+        left_rim = cup[0]
+        right_rim = cup[-1]
+        bottom = min(cup)
         
-        # --- 4. Volume Spike ---
-        avg_vol_20d = v.shift(1).rolling(20).mean()
-        volume_spike = v > (3 * avg_vol_20d)
+        # Rim should be similar height
+        rim_diff = abs(left_rim - right_rim) / left_rim
         
-        # Group patterns to iterate and backtest
-        signal_funcs = {
-            "Golden Cross": golden_cross,
-            "RSI Divergence": rsi_divergence,
-            "Support Break": support_break,
-            "Volume Spike": volume_spike
-        }
+        # Handle should be a small drawdown from the right rim
+        handle_max = max(handle)
+        handle_min = min(handle)
         
-        for p_name, signals in signal_funcs.items():
-            # Get integer indices where pattern is True
-            triggers = np.where(signals)[0]
-            
-            # Check if this pattern triggered very recently (in last 3 trading days)
-            recent_trigger = any(i >= len(c) - 3 for i in triggers)
-            
-            if modern_triggered := recent_trigger:
-                # We need to backtest it using all valid past triggers
-                valid_past_triggers = [i for i in triggers if i + forward_days < len(c)]
-                total_occurrences = len(valid_past_triggers)
-                
-                if total_occurrences == 0:
-                    continue  # Can't reliably backtest if it has never happened before safely
+        if rim_diff < 0.1 and bottom < left_rim * 0.8:
+            if handle_max <= right_rim and handle_min > bottom:
+                # Breakout: close above right rim
+                if window[-1] > right_rim and window[-2] <= right_rim:
+                    signals.iloc[i] = True
                     
-                returns = []
-                success_count = 0 
-                
-                for idx in valid_past_triggers:
-                    entry_price = c.iloc[idx]
-                    exit_price = c.iloc[idx + forward_days]
-                    pct_return = ((exit_price - entry_price) / entry_price) * 100
-                    returns.append(pct_return)
-                    
-                    if pct_return >= 10.0:
-                        success_count += 1
-                        
-                avg_return = np.mean(returns)
-                win_rate = (success_count / total_occurrences) * 100
-                
-                # Confidence score natively calculated from backtested win_rate
-                confidence_score = win_rate
-                
-                patterns_found.append({
-                    "pattern": p_name,
-                    "occurrences_last_5y": total_occurrences,
-                    "average_60d_return": f"{avg_return:.1f}%",
-                    "win_rate_over_10pct": f"{win_rate:.1f}%",
-                    "confidence": f"{confidence_score:.1f}%",
-                    "signal_type": "Bullish" if p_name != "Support Break" else "Bearish"
-                })
-                
-        if not patterns_found:
-            return {
-                "patterns": [],
-                "message": "No significant patterns detected currently"
-            }
-            
-        # Return sorted by highest win rate 
-        patterns_found.sort(key=lambda x: float(x["win_rate_over_10pct"].strip('%')), reverse=True)
-        return {"patterns": patterns_found, "message": f"{len(patterns_found)} active pattern(s) detected."}
-        
-    except Exception as e:
-        print(f"Pattern detection error for {symbol}: {e}")
-        return {"patterns": [], "message": f"Error running pattern detections: {e}"}
+    return signals
+
+def get_pattern_signals(df: pd.DataFrame) -> Dict[str, pd.Series]:
+    """Run all detectors and return a dict of boolean series."""
+    df = get_indicators(df)
+    return {
+        "Golden Cross": detect_golden_cross(df),
+        "RSI Divergence": detect_rsi_divergence(df),
+        "Resistance Breakout": detect_resistance_breakout(df),
+        "Head and Shoulders": detect_head_and_shoulders(df),
+        "Cup and Handle": detect_cup_and_handle(df)
+    }

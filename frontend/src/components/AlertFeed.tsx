@@ -21,7 +21,7 @@ export function AlertFeed() {
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/v1/alerts/feed", {
+        const res = await fetch("http://127.0.0.1:8000/api/v1/alerts/feed", {
           headers: {
             "Authorization": `Bearer ${token}`
           }

@@ -71,3 +71,26 @@ class ToneShiftBaseline(Base):
     sentiment_score = Column(String, nullable=False) # 'confident', 'cautious', 'neutral'
     key_paragraph = Column(String)
     created_at = Column(DateTime(timezone=True), default=func.now())
+
+class DetectedPattern(Base):
+    __tablename__ = 'detected_patterns'
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String, index=True, nullable=False)
+    pattern_name = Column(String, index=True, nullable=False)
+    detected_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    price_at_detection = Column(Float, nullable=False)
+    metadata_json = Column(String) # For storing specific pattern detail if needed
+
+class PatternBacktestResult(Base):
+    __tablename__ = 'pattern_backtest_results'
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String, index=True, nullable=False)
+    pattern_name = Column(String, index=True, nullable=False)
+    occurrences_count = Column(Integer, nullable=False)
+    median_return_30d = Column(Float)
+    median_return_60d = Column(Float)
+    median_return_90d = Column(Float)
+    win_rate = Column(Float)
+    updated_at = Column(DateTime(timezone=True), default=func.now())

@@ -31,7 +31,7 @@ export default function PortfolioPage() {
     }
     const delay = setTimeout(async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/search?q=${searchQuery}`);
+        const res = await fetch(`http://127.0.0.1:8000/api/v1/search?q=${searchQuery}`);
         const data = await res.json();
         if (data.results) setSearchResults(data.results);
       } catch (e) {
@@ -45,7 +45,7 @@ export default function PortfolioPage() {
     if (!selectedResult || !qty || !avgPrice || !token) return;
     setIsAdding(true);
     try {
-      await fetch("http://localhost:8000/api/v1/portfolio/add", {
+      await fetch("http://127.0.0.1:8000/api/v1/portfolio/add", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -77,12 +77,12 @@ export default function PortfolioPage() {
     setStockInsights(null);
     try {
       // Fetch Fundamentals
-      const fres = await fetch(`http://localhost:8000/api/v1/fundamentals?symbol=${symbol}`);
+      const fres = await fetch(`http://127.0.0.1:8000/api/v1/fundamentals?symbol=${symbol}`);
       const fdata = await fres.json();
       setSelectedStockForDetails({ symbol, ...fdata });
 
       // Fetch AI Insights
-      const res = await fetch(`http://localhost:8000/api/v1/portfolio/insights/${symbol}`);
+      const res = await fetch(`http://127.0.0.1:8000/api/v1/portfolio/insights/${symbol}`);
       const data = await res.json();
       setStockInsights(data);
     } catch (e) {
