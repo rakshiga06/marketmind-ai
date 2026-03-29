@@ -10,10 +10,12 @@ from chat.rag import retrieve_context
 load_dotenv()
 
 # Configure Gemini
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.5-flash")
+def get_model():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        genai.configure(api_key=api_key)
+    return genai.GenerativeModel("gemini-1.5-flash")
+
 
 def extract_symbols(message: str) -> str:
     # Quick utility to extract first likely symbol for RAG lookup
@@ -82,8 +84,10 @@ Answer now, citing sources in [brackets] for every fact:
 
     try:
         # Step 4: Call Gemini
+        model = get_model()
         response = model.generate_content(full_prompt)
         reply_text = response.text
+
         
         # Step 5: Parse sources from response
         extracted_citations_list = extract_sources(reply_text)

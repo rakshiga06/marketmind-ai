@@ -44,7 +44,7 @@ async def get_alert_feed(symbol: Optional[str] = None, current_user = Depends(au
     import asyncio
     await asyncio.sleep(1) # Delay between concurrent page loads
     
-    gemini_model = genai.GenerativeModel("gemini-2.5-flash") if gemini_key else None
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash") if gemini_key else None
     
     filtered_alerts = []
     holding_symbols = {h.symbol for h in db.query(PortfolioHolding).filter(PortfolioHolding.user_id == current_user.id).all()}

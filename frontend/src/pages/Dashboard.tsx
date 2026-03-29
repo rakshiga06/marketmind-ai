@@ -15,14 +15,15 @@ const Dashboard = () => (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
       <MarketOverview />
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <PortfolioSummary limit={3} />
+          <ChartWidget />
+        </div>
         <div className="lg:col-span-3 space-y-6">
           <AlertFeed />
         </div>
-        <div className="lg:col-span-2 space-y-6">
-          <PortfolioSummary />
-          <ChartWidget />
-        </div>
       </div>
+
 
       <OpportunityRadar />
 

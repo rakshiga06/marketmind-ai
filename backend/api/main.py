@@ -349,7 +349,7 @@ Provide a 3-bullet-point summary of the stock's current momentum, recent filings
         import asyncio
         await asyncio.sleep(1) # Add 1 second delay 
         genai.configure(api_key=gemini_key)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         response = model.generate_content(prompt)
         return {"insights": response.text}

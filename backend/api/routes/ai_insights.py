@@ -54,7 +54,7 @@ Keep it strictly factual and actionable.
         await asyncio.sleep(1) # Delay between concurrent page loads
         
         genai.configure(api_key=gemini_key)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         response = model.generate_content(prompt)
         text = response.text.strip()
