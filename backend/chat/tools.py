@@ -4,7 +4,7 @@ import re
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from db.models import PortfolioHolding, Company
-from patterns.detector import get_real_pattern_signals
+from patterns.detector import get_pattern_signals as detect_patterns
 
 def get_stock_price(symbol: str) -> dict:
     try:
@@ -44,8 +44,31 @@ def get_radar_alerts(symbol: str) -> list:
     ]
 
 def get_pattern_signals(symbol: str) -> dict:
-    # Connects to our TA-Lib historical yfinance backtesting module
-    return get_real_pattern_signals(symbol)
+    """Connects to our TA-Lib historical yfinance analysis."""
+    try:
+        # Fetch 2y of data to ensure enough context for long-term indicators (SMA200)
+        sym = symbol if (".NS" in symbol or ".BO" in symbol) else f"{symbol}.NS"
+        df = yf.download(sym, period="2y", interval="1d", progress=False)
+        
+        if df.empty or len(df) < 200:
+            return {"symbol": symbol, "error": "Insufficient historical data for technical analysis"}
+            
+        results = detect_patterns(df)
+        
+        # Convert the dictionary of series to a summary of currently active patterns
+        active_patterns = []
+        for p_name, triggers in results.items():
+            if triggers.iloc[-1]:
+                active_patterns.append(p_name)
+                
+        return {
+            "symbol": symbol,
+            "active_patterns": active_patterns,
+            "count": len(active_patterns),
+            "status": "Success"
+        }
+    except Exception as e:
+        return {"symbol": symbol, "error": str(e)}
 
 def get_portfolio_concentration(user_id: int, db: Session) -> dict:
     holdings = db.query(PortfolioHolding).filter(PortfolioHolding.user_id == user_id).all()

@@ -39,21 +39,21 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
-def prehash_password(password: str) -> bytes:
+def prehash_password(password: str) -> str:
     if not password:
         raise ValueError("Password cannot be empty")
-    return hashlib.sha256(password.encode('utf-8')).digest()
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        prehashed = prehash_password(plain_password)
-        return pwd_context.verify(prehashed, hashed_password)
-    except ValueError:
+        pre_plain = prehash_password(plain_password)
+        return pwd_context.verify(pre_plain, hashed_password)
+    except Exception:
         return False
 
 def get_password_hash(password: str) -> str:
-    prehashed = prehash_password(password)
-    return pwd_context.hash(prehashed)
+    pre_plain = prehash_password(password)
+    return pwd_context.hash(pre_plain)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
