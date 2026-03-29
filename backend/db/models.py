@@ -61,3 +61,13 @@ class CorporateFiling(Base):
     title = Column(String, nullable=False)
     description = Column(String)
     url = Column(String)
+
+class ToneShiftBaseline(Base):
+    __tablename__ = 'tone_shift_baselines'
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String, index=True, nullable=False)
+    quarter = Column(String, nullable=False) # e.g. "Q1-2024"
+    sentiment_score = Column(String, nullable=False) # 'confident', 'cautious', 'neutral'
+    key_paragraph = Column(String)
+    created_at = Column(DateTime(timezone=True), default=func.now())

@@ -8,7 +8,7 @@ const features = [
   { icon: Radar, title: "Opportunity Radar", desc: "AI detects insider trades, bulk deals, and filings — explains them in plain English." },
   { icon: BarChart3, title: "Chart Intelligence", desc: "Automatic pattern recognition with backtested success rates on Indian stocks." },
   { icon: MessageSquare, title: "AI Chat", desc: "Ask anything about your portfolio. Gets answers from real filings and data." },
-  { icon: Play, title: "Market Videos", desc: "Auto-generated daily market summaries — no human editing required." },
+
 ];
 
 const Index = () => (
@@ -86,7 +86,6 @@ const Index = () => (
           <Link to="/radar" className="hover:text-foreground transition-colors">Radar</Link>
           <Link to="/charts" className="hover:text-foreground transition-colors">Charts</Link>
           <Link to="/chat" className="hover:text-foreground transition-colors">Chat</Link>
-          <Link to="/videos" className="hover:text-foreground transition-colors">Videos</Link>
         </div>
         <p className="text-xs text-muted-foreground">© 2026 MarketMind. Not financial advice.</p>
       </div>

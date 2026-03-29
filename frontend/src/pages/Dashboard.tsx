@@ -2,6 +2,7 @@ import { Navbar } from "@/components/Navbar";
 import { MarketOverview } from "@/components/MarketOverview";
 import { PortfolioSummary } from "@/components/PortfolioSummary";
 import { OpportunityRadar } from "@/components/OpportunityRadar";
+import { AlertFeed } from "@/components/AlertFeed";
 import { ChartWidget } from "@/components/ChartWidget";
 import { ChatWidget } from "@/components/ChatWidget";
 import { OnboardingTooltips } from "@/components/OnboardingTooltips";
@@ -20,6 +21,7 @@ const Dashboard = () => (
           <ChartWidget />
         </div>
         <div className="lg:col-span-3 space-y-6">
+          <AlertFeed />
           <OpportunityRadar />
           <ChatWidget />
         </div>

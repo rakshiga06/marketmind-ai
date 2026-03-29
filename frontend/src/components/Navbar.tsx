@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Moon, Sun, Menu, X } from "lucide-react";
+import { Bell, Moon, Sun, Menu, X, LogOut } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -9,12 +10,13 @@ const navLinks = [
   { label: "Radar", path: "/radar" },
   { label: "Charts", path: "/charts" },
   { label: "Chat", path: "/chat" },
-  { label: "Videos", path: "/videos" },
+
 ];
 
 export const Navbar = () => {
   const location = useLocation();
   const { beginnerMode, setBeginnerMode, theme, setTheme } = useApp();
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLanding = location.pathname === "/";
 
@@ -71,9 +73,14 @@ export const Navbar = () => {
             {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
           </button>
 
-          {!isLanding && (
-            <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <span className="text-xs font-bold text-primary">A</span>
+          {!isLanding && user && (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+                <span className="text-xs font-bold text-primary">{user.email ? user.email.charAt(0).toUpperCase() : "U"}</span>
+              </div>
+              <button onClick={logout} className="p-2 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors" title="Log out">
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
           )}
 

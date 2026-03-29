@@ -27,6 +27,8 @@ export default function ChartsPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState("1M");
   const [activeIndicators, setActiveIndicators] = useState<string[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   
   const [stockData, setStockData] = useState<any>(null);
@@ -36,11 +38,28 @@ export default function ChartsPage() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
-  const stock = stocks.find(s => s.ticker === selectedStock) || stocks[1];
+  const stock = stocks.find(s => s.ticker === selectedStock) || { name: stockData?.symbol || selectedStock, ticker: selectedStock, price: 0, change: 0, changePct: 0 };
 
   const toggleIndicator = (ind: string) => {
     setActiveIndicators(prev => prev.includes(ind) ? prev.filter(i => i !== ind) : [...prev, ind]);
   };
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const delay = setTimeout(async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/v1/search?q=${searchQuery}`);
+        const data = await res.json();
+        if (data.results) setSearchResults(data.results);
+      } catch (e) {
+        console.error(e);
+      }
+    }, 400);
+    return () => clearTimeout(delay);
+  }, [searchQuery]);
 
   useEffect(() => {
     const fetchStockData = async () => {
@@ -177,22 +196,36 @@ export default function ChartsPage() {
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search stocks..."
-              className="w-full bg-secondary rounded-lg pl-8 pr-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-primary"
+              placeholder="Search global stocks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-secondary rounded-lg pl-8 pr-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60 focus:ring-1 focus:ring-primary transition-all"
               onFocus={() => setSearchFocused(true)}
-              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 250)}
             />
             {searchFocused && (
-              <div className="absolute top-full left-0 right-0 mt-1 glass-card p-2 z-10">
-                {stocks.slice(0, 4).map(s => (
+              <div className="absolute top-full left-0 right-0 mt-1 glass-card p-2 z-20 max-h-60 overflow-y-auto shadow-xl">
+                {searchQuery.trim() ? (searchResults.length > 0 ? searchResults.map(s => (
+                  <button
+                    key={s.symbol}
+                    onMouseDown={() => { setSelectedStock(s.symbol); setSearchQuery(''); setSearchFocused(false); }}
+                    className="w-full text-left px-3 py-2 rounded text-sm hover:bg-secondary flex flex-col gap-0.5"
+                  >
+                    <span className="font-bold flex items-center justify-between">
+                      {s.symbol}
+                      <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{s.type || "EQUITY"}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">{s.name} • {s.exchange}</span>
+                  </button>
+                )) : <div className="text-xs text-muted-foreground px-2 py-2">No results</div>) : stocks.slice(0, 4).map(s => (
                   <button
                     key={s.ticker}
-                    onClick={() => setSelectedStock(s.ticker)}
+                    onMouseDown={() => { setSelectedStock(s.ticker); setSearchFocused(false); }}
                     className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-secondary flex items-center justify-between"
                   >
                     <span className="font-mono font-medium">{s.ticker}</span>
-                    <span className={`text-xs font-mono ${s.change >= 0 ? "text-gain" : "text-loss"}`}>
-                      {s.change >= 0 ? "+" : ""}{s.changePct}%
+                    <span className={`text-xs font-mono ${(s.change ?? 0) >= 0 ? "text-gain" : "text-loss"}`}>
+                      {(s.change ?? 0) >= 0 ? "+" : ""}{s.changePct || 0}%
                     </span>
                   </button>
                 ))}

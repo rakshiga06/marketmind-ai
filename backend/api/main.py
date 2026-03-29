@@ -35,6 +35,9 @@ app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(ai_insights.router, prefix="/api/v1", tags=["ai_insights"])
 
+from api.routes import alerts
+app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
+
 @app.get("/")
 async def root():
     return {
@@ -179,7 +182,8 @@ def get_fundamentals(symbol: str):
         info = ticker.info
         
         # Verify info actually contains useful price info, else fallback
-        if not info or ("currentPrice" not in info and "regularMarketPrice" not in info):
+        has_price = any(k in info for k in ["currentPrice", "regularMarketPrice", "navPrice", "previousClose"])
+        if not info or not has_price:
             if not "." in symbol:
                 ticker = yf.Ticker(symbol + ".NS", session=session)
                 info = ticker.info
@@ -190,20 +194,20 @@ def get_fundamentals(symbol: str):
         return {
             "symbol": info.get("symbol", symbol),
             "name": info.get("shortName", info.get("longName", symbol)),
-            "price": info.get("currentPrice", info.get("regularMarketPrice")),
-            "market_cap": info.get("marketCap"),
-            "pe_ratio": info.get("trailingPE"),
+            "price": info.get("currentPrice", info.get("regularMarketPrice", info.get("navPrice", info.get("previousClose")))),
+            "market_cap": info.get("marketCap", info.get("totalAssets")),
+            "pe_ratio": info.get("trailingPE", info.get("forwardPE")),
             "eps": info.get("trailingEps"),
             "high_52w": info.get("fiftyTwoWeekHigh"),
             "low_52w": info.get("fiftyTwoWeekLow"),
             "volume": info.get("volume", info.get("regularMarketVolume")),
-            "dividend_yield": info.get("dividendYield"),
+            "dividend_yield": info.get("dividendYield", info.get("yield")),
             "book_value": info.get("bookValue"),
             "roce": info.get("returnOnEquity", 0) * 1.2 if info.get("returnOnEquity") else None, # approx if missing
             "roe": info.get("returnOnEquity"),
             "debt_to_equity": info.get("debtToEquity"),
-            "sector": info.get("sector"),
-            "industry": info.get("industry"),
+            "sector": info.get("sector", info.get("category")),
+            "industry": info.get("industry", info.get("fundFamily")),
             "about": info.get("longBusinessSummary"),
             "financials": {
                 "total_revenue": info.get("totalRevenue"),
