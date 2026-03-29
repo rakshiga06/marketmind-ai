@@ -9,10 +9,14 @@ router = APIRouter()
 @router.get("/portfolio/insights/{symbol}")
 async def get_portfolio_insights(symbol: str):
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
-        ticker = yf.Ticker(symbol, session=session)
+        ticker = yf.Ticker(symbol)
         info = ticker.info
+        
+        # If no info found, try with .NS
+        if not info or ("currentPrice" not in info and "regularMarketPrice" not in info):
+            if not "." in symbol:
+                ticker = yf.Ticker(symbol + ".NS")
+                info = ticker.info
     except Exception:
         info = {}
 
@@ -35,7 +39,7 @@ Generate a JSON response with exactly this structure:
 Keep it strictly factual and actionable.
 """
     openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
+    if not openai_key or "your_" in openai_key:
         return {
             "pros": ["Company has an active market presence.", "Data indicates potential for long-term growth."],
             "cons": ["Valuation may be high relative to book value.", "Requires careful tracking of quarterly results."],

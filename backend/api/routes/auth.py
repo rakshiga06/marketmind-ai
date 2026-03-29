@@ -15,7 +15,7 @@ from db.models import User
 router = APIRouter()
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 # JWT configs
 SECRET_KEY = config.OPENAI_API_KEY if config.OPENAI_API_KEY else "marketmind-super-secret-key-12345"
 ALGORITHM = "HS256"

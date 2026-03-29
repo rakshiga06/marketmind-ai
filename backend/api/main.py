@@ -38,6 +38,19 @@ app.include_router(ai_insights.router, prefix="/api/v1", tags=["ai_insights"])
 from api.routes import alerts
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"Global Exception caught: {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": traceback.format_exc()},
+    )
+
 @app.get("/")
 async def root():
     return {
@@ -62,7 +75,11 @@ def get_stock_data(symbol: str, timeframe: str = "1M"):
         
         # Auto-append .NS only if explicitly needed, but for now we trust the symbol passed from frontend search
         import requests
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Referer": "https://finance.yahoo.com/",
+            "Accept": "application/json"
+        }
         period, interval = tf_map.get(timeframe, ("1mo", "1d"))
         
         def fetch_yf(sym):
@@ -175,10 +192,7 @@ def get_fundamentals(symbol: str):
     import requests
     import yfinance as yf
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
-        
-        ticker = yf.Ticker(symbol, session=session)
+        ticker = yf.Ticker(symbol)
         info = ticker.info
         
         # Verify info actually contains useful price info, else fallback

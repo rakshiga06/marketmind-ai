@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { toast } from "sonner";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface User {
   id: number;
@@ -9,54 +8,74 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User) => void;
+  login: (token: string, user?: User) => void;
   logout: () => void;
   isLoading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  token: null,
+  login: () => {},
+  logout: () => {},
+  isLoading: true,
+});
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    if (storedToken) {
-      setToken(storedToken);
-      fetch("http://localhost:8000/api/v1/auth/me", {
-        headers: { Authorization: `Bearer ${storedToken}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.email) setUser(data);
-        else {
-          localStorage.removeItem("token");
-          setToken(null);
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
-        setToken(null);
-      })
-      .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
+    const fetchUser = async () => {
+      // If we already have user (from login call), don't fetch again
+      if (user) {
+        setIsLoading(false);
+        return;
+      }
 
-  const login = (newToken: string, userData: User) => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:8000/api/v1/auth/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data);
+        } else {
+          logout();
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [token, user]);
+
+  const login = (newToken: string, userData?: User) => {
     localStorage.setItem("token", newToken);
     setToken(newToken);
-    setUser(userData);
+    if (userData) {
+      setUser(userData);
+    }
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     setToken(null);
     setUser(null);
-    toast("Logged out successfully");
   };
 
   return (
@@ -64,12 +83,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 };
