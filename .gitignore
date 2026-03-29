@@ -1,0 +1,21 @@
+# Environment variables
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Database
+*.db
+*.sqlite3
+
+# Vector DB
+chroma_db/
+*.bin
+
+# Node (frontend)
+node_modules/
+
+# OS
+.DS_Store
