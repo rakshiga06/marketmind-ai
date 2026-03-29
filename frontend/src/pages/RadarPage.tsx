@@ -3,23 +3,32 @@ import { Navbar } from "@/components/Navbar";
 import { SignalCard } from "@/components/SignalCard";
 import { motion } from "framer-motion";
 import { Search, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const filters = ["All Signals", "Insider Trades", "Bulk Deals", "Filings", "Earnings", "Regulatory"];
 
 const RadarPage = () => {
+  const { token } = useAuth();
   const [activeFilter, setActiveFilter] = useState("All Signals");
   const [searchQuery, setSearchQuery] = useState("");
   const [myStocksOnly, setMyStocksOnly] = useState(false);
   const [activeSignals, setActiveSignals] = useState<any[]>([]);
+  const [portfolioStocks, setPortfolioStocks] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // ZOMATO, RELIANCE, TCS, HDFCBANK from the onboarding phase
-  const trackedWatchlist = ["ZOMATO", "RELIANCE", "TCS", "HDFCBANK"];
 
   useEffect(() => {
     const fetchSignals = async () => {
+      setLoading(true);
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/v1/radar/signals");
+        let url = "http://127.0.0.1:8000/api/v1/radar/signals";
+        const trimmed = searchQuery.trim();
+        if (myStocksOnly && portfolioStocks.length > 0) {
+           url += `?symbols=${portfolioStocks.join(",")}`;
+        } else if (trimmed.length > 0) {
+           url += `?symbol=${trimmed}`;
+        }
+        
+        const res = await fetch(url);
         const data = await res.json();
         setActiveSignals(data.signals || []);
       } catch (e) {
@@ -28,13 +37,42 @@ const RadarPage = () => {
         setLoading(false);
       }
     };
-    fetchSignals();
-  }, []);
+    
+    // Add 500ms debounce to prevent spamming backend limits
+    const delayDebounceFn = setTimeout(() => {
+      fetchSignals();
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, myStocksOnly, portfolioStocks]);
+    
+  useEffect(() => {
+    const initPort = async () => {
+      if (!token) return;
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/v1/portfolio", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        setPortfolioStocks((data.holdings || []).map((h: any) => h.symbol));
+      } catch(e) {}
+    };
+    initPort();
+  }, [token]);
 
   const filtered = activeSignals.filter(s => {
     const matchesSearch = searchQuery === "" || s.ticker.toLowerCase().includes(searchQuery.toLowerCase()) || s.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesWatchlist = myStocksOnly ? trackedWatchlist.includes(s.ticker) : true;
-    return matchesSearch && matchesWatchlist;
+    const matchesWatchlist = myStocksOnly ? portfolioStocks.includes(s.ticker) : true;
+    
+    let mFilter = true;
+    if (activeFilter !== "All Signals") {
+      const srcStr = (JSON.stringify(s.sources) + s.headline).toLowerCase();
+      if (activeFilter === "Insider Trades") mFilter = srcStr.includes("insider");
+      else if (activeFilter === "Bulk Deals") mFilter = srcStr.includes("bulk") || srcStr.includes("buyback");
+      else if (activeFilter === "Filings") mFilter = srcStr.includes("filing");
+      else if (activeFilter === "Earnings") mFilter = srcStr.includes("q3") || srcStr.includes("earn");
+      else if (activeFilter === "Regulatory") mFilter = srcStr.includes("sebi") || srcStr.includes("order");
+    }
+    
+    return matchesSearch && matchesWatchlist && mFilter;
   });
 
   return (
