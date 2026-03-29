@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Index, BigInteger
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -11,6 +12,25 @@ class Company(Base):
     name = Column(String, nullable=False)
     isin = Column(String, unique=True, index=True)
     industry = Column(String)
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.now())
+
+class PortfolioHolding(Base):
+    __tablename__ = 'portfolio_holdings'
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    symbol = Column(String, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    qty = Column(Float, nullable=False)
+    avg_price = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.now())
 
 class OHLCV(Base):
     """

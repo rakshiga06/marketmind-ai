@@ -1,11 +1,11 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 class Config:
     # Database
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://marketmind:marketmind_password@localhost:5432/marketmind_db")
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./marketmind.db")
     
     # Redis
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
