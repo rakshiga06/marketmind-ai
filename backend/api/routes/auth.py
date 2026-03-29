@@ -7,6 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import hashlib
 
 from config import config
 from db.database import get_db
@@ -38,11 +39,21 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def prehash_password(password: str) -> bytes:
+    if not password:
+        raise ValueError("Password cannot be empty")
+    return hashlib.sha256(password.encode('utf-8')).digest()
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        prehashed = prehash_password(plain_password)
+        return pwd_context.verify(prehashed, hashed_password)
+    except ValueError:
+        return False
+
+def get_password_hash(password: str) -> str:
+    prehashed = prehash_password(password)
+    return pwd_context.hash(prehashed)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
