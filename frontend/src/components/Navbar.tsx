@@ -7,10 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const navLinks = [
   { label: "Dashboard", path: "/dashboard" },
+  { label: "Portfolio", path: "/portfolio" },
   { label: "Radar", path: "/radar" },
   { label: "Charts", path: "/charts" },
   { label: "Chat", path: "/chat" },
-
 ];
 
 export const Navbar = () => {

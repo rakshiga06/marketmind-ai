@@ -77,7 +77,7 @@ export const PortfolioSummary = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="glass-card p-5 relative flex flex-col h-full"
+      className="glass-card p-5 relative flex flex-col h-auto"
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-sm text-muted-foreground">Your Portfolio</h3>
@@ -120,8 +120,8 @@ export const PortfolioSummary = () => {
         </div>
       )}
 
-      <div className="space-y-2 max-h-48 overflow-y-auto pr-1 flex-1">
-        {holdings.map(h => {
+      <div className="space-y-2 overflow-y-auto pr-1">
+        {holdings.slice(0, 3).map(h => {
           const live = liveData[h.symbol];
           const cp = live?.price || h.avg_price;
           const pl = ((cp - h.avg_price) / h.avg_price) * 100;
