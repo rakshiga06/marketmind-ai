@@ -16,11 +16,12 @@ async def get_alert_feed(symbol: Optional[str] = None, current_user = Depends(au
     """
     
     # 1. Mocking retrieval of recent active alerts parsed locally by Celery workers
-    # In a prod environment, these would be pulled from PostgreSQL `alerts` table or similar.
     active_alerts = [
         {"id": "a1", "symbol": "INFY", "type": "Multi-Signal Setup", "score": 8, "trigger_date": "2024-03-29", "raw_summary": "High probability setup for INFY: 2 correlated signals detected."},
         {"id": "a2", "symbol": "RELIANCE", "type": "Tone Shift", "score": 9, "trigger_date": "2024-03-28", "raw_summary": "Management tone for RELIANCE significantly shifted from cautious to confident in Q1-2024."},
-        {"id": "a3", "symbol": "TCS", "type": "Insider Buy", "score": 5, "trigger_date": "2024-03-27", "raw_summary": "Promoter entity acquired 500,000 shares in the open market."}
+        {"id": "a3", "symbol": "TCS", "type": "Insider Buy", "score": 5, "trigger_date": "2024-03-27", "raw_summary": "Promoter entity acquired 500,000 shares in the open market."},
+        {"id": "a4", "symbol": "HDFCBANK", "type": "Golden Cross", "score": 7, "trigger_date": "2024-03-26", "raw_summary": "50-day moving average crossed above the 200-day moving average indicating bullish sentiment."},
+        {"id": "a5", "symbol": "ZOMATO", "type": "Volume Spikes", "score": 8, "trigger_date": "2024-03-26", "raw_summary": "Unusual volume activity detected in the last trading hour, up 400% compared to average."}
     ]
     
     # Filter by user portfolio locally (Phase 2 Portfolio Filters)
@@ -32,7 +33,14 @@ async def get_alert_feed(symbol: Optional[str] = None, current_user = Depends(au
     results = []
     
     from services.pinecone_service import query_similar_alerts
-    from services.anthropic_service import anthropic_client
+    import google.generativeai as genai
+    import os
+    
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key:
+        genai.configure(api_key=gemini_key)
+    
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash") if gemini_key else None
     
     for alert in active_alerts:
         if symbol and alert["symbol"] != symbol:
@@ -51,10 +59,10 @@ async def get_alert_feed(symbol: Optional[str] = None, current_user = Depends(au
             # In prod, extract actual stock performance 30/60/90 days after those past dates.
             historical_context += " Previously, similar bulk deals mapped to +15% quarterly yields."
             
-        # 3. Context Generation Engine using Anthropic/Claude (3 sentence summary)
+        # 3. Context Generation Engine using Gemini (3 sentence summary)
         claude_explanation = ""
-        try:
-            if anthropic_client:
+        if gemini_model:
+            try:
                 prompt = f"""
                 You are a concise financial alert generator.
                 A priority alert just triggered:
@@ -66,17 +74,12 @@ async def get_alert_feed(symbol: Optional[str] = None, current_user = Depends(au
                 2. Why it is unusual compared to historical data.
                 3. What happened to the stock price the last time this pattern occurred.
                 """
-                response = anthropic_client.messages.create(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=60,
-                    temperature=0.2,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                claude_explanation = response.content[0].text.strip()
-            else:
-                claude_explanation = f"{alert['raw_summary']} {historical_context} Simulated Claude generated output since API is not initialized natively."
-        except Exception as e:
-            claude_explanation = alert["raw_summary"]
+                response = gemini_model.generate_content(prompt)
+                claude_explanation = response.text.strip()
+            except Exception as e:
+                claude_explanation = "Analysis unavailable — retrying"
+        else:
+            claude_explanation = "Analysis unavailable — retrying"
             
         results.append({
             "id": alert["id"],

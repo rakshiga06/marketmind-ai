@@ -213,6 +213,7 @@ def get_fundamentals(symbol: str):
             "symbol": info.get("symbol", symbol),
             "name": info.get("shortName", info.get("longName", symbol)),
             "price": info.get("currentPrice", info.get("regularMarketPrice", info.get("navPrice", info.get("previousClose")))),
+            "previous_close": info.get("previousClose", info.get("regularMarketPreviousClose")),
             "market_cap": info.get("marketCap", info.get("totalAssets")),
             "pe_ratio": info.get("trailingPE", info.get("forwardPE")),
             "eps": info.get("trailingEps"),
@@ -333,20 +334,17 @@ Recent News & Filings:
 
 Provide a 3-bullet-point summary of the stock's current momentum, recent filings/news, and fundamental valuation. Keep it extremely concise, professional, and directly actionable."""
 
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key or openai_key == "your_openai_api_key":
-        return {"insights": f"MarketMind Insight for {symbol}:\n\n- **Momentum**: The stock is showing typical market volatility. Review the RSI pattern.\n- **News**: Limited recent catalysts detected in public filings.\n- **Fundamentals**: P/E is {info.get('trailingPE', 'N/A')}. Valuation depends on upcoming quarterly results.\n\n*(Note: Add your real OPENAI_API_KEY to your backend .env file for real-time generative AI analysis)*"}
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key or gemini_key == "your_key_here":
+        return {"insights": f"MarketMind Insight for {symbol}:\n\n- **Momentum**: The stock is showing typical market volatility. Review the RSI pattern.\n- **News**: Limited recent catalysts detected in public filings.\n- **Fundamentals**: P/E is {info.get('trailingPE', 'N/A')}. Valuation depends on upcoming quarterly results.\n\n*(Note: Add your real GEMINI_API_KEY to your backend .env file for real-time generative AI analysis)*"}
         
     try:
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=openai_key)
-        response = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=250,
-            temperature=0.3
-        )
-        return {"insights": response.choices[0].message.content}
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        response = model.generate_content(prompt)
+        return {"insights": response.text}
     except Exception as e:
         return {"error": str(e)}
 

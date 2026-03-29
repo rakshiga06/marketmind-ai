@@ -22,9 +22,11 @@ export const OpportunityRadar = () => (
       </Link>
     </div>
 
-    <div className="space-y-3">
-      {signals.slice(0, 3).map(s => (
-        <SignalCard key={s.id} signal={s} compact />
+    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory px-1">
+      {signals.map(s => (
+        <div key={s.id} className="min-w-[300px] sm:min-w-[350px] snap-center shrink-0">
+          <SignalCard signal={s} compact />
+        </div>
       ))}
     </div>
   </motion.div>

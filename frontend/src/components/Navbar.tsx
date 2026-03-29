@@ -1,8 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Moon, Sun, Menu, X, LogOut } from "lucide-react";
+import { Bell, Moon, Sun, Menu, X, LogOut, Check, ExternalLink } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navLinks = [
@@ -19,6 +19,37 @@ export const Navbar = () => {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isLanding = location.pathname === "/";
+  
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      if (isLanding) return;
+      try {
+        const res = await fetch("http://localhost:8000/api/v1/radar/signals");
+        const data = await res.json();
+        const top5 = (data.signals || []).slice(0, 5);
+        setNotifications(top5);
+        setUnreadCount(top5.length);
+      } catch (e) {
+        console.error("Failed to fetch notifications:", e);
+      }
+    };
+    fetchNotifs();
+  }, [isLanding]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -62,10 +93,62 @@ export const Navbar = () => {
                 </span>
               </div>
 
-              <button className="relative p-2 rounded-lg hover:bg-secondary transition-colors">
-                <Bell className="h-4 w-4 text-muted-foreground" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-loss" />
-              </button>
+              <div className="relative" ref={notifRef}>
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-destructive flex items-center justify-center text-[8px] font-bold text-white border-2 border-background">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                
+                <AnimatePresence>
+                  {showNotifications && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.1 }}
+                      className="absolute right-0 mt-2 w-80 glass-card border border-border/50 rounded-xl shadow-xl overflow-hidden z-50 origin-top-right"
+                    >
+                      <div className="p-3 border-b border-border/50 bg-secondary/30 flex items-center justify-between">
+                        <h3 className="font-semibold text-sm">Notifications</h3>
+                        {unreadCount > 0 && (
+                          <button onClick={() => setUnreadCount(0)} className="text-xs text-primary hover:underline flex items-center gap-1 font-medium">
+                            <Check className="w-3 h-3" /> Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-80 overflow-y-auto custom-scrollbar flex flex-col">
+                        {notifications.length === 0 ? (
+                           <div className="p-4 text-center text-xs text-muted-foreground">No new alerts</div>
+                        ) : (
+                          notifications.map((n, i) => (
+                            <div key={n.id || i} className="p-3 border-b border-border/10 hover:bg-secondary/20 transition-colors flex gap-3 relative group">
+                              {(unreadCount > 0 && i < unreadCount) && (
+                                <div className="absolute left-2 top-4 w-1.5 h-1.5 rounded-full bg-primary" />
+                              )}
+                              <div className={`flex-1 ${unreadCount > 0 && i < unreadCount ? 'pl-2' : ''}`}>
+                                <p className="text-sm font-semibold text-foreground/90">{n.ticker} <span className="text-xs font-normal text-muted-foreground ml-1">— {n.headline}</span></p>
+                                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                                  {n.timestamp}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <Link to="/radar" onClick={() => setShowNotifications(false)} className="block p-3 text-center text-xs font-semibold text-primary hover:bg-secondary/30 transition-colors border-t border-border/50 bg-background/50">
+                        View all alerts <ExternalLink className="w-3 h-3 inline ml-1 align-text-bottom" />
+                      </Link>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </>
           )}
 

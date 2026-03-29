@@ -11,7 +11,7 @@ export const ChatWidget = () => {
   useEffect(() => {
     const fetchInsight = async () => {
       try {
-        // Find best portfolio stock to analyze
+        // Find best watchlist stock to analyze
         const pRes = await fetch("http://localhost:8000/api/v1/portfolio");
         const pData = await pRes.json();
         const holdings = pData.holdings || [];
@@ -52,7 +52,7 @@ export const ChatWidget = () => {
 
       <div className="bg-secondary/30 rounded-lg p-3 mb-3">
         <p className="text-xs text-muted-foreground mb-1">Actively Analyzing Context:</p>
-        <p className="text-sm font-medium text-emerald-400">"{targetSymbol || "Market"}" in your Portfolio</p>
+        <p className="text-sm font-medium text-emerald-400">"{targetSymbol || "Market"}" in your Watchlist</p>
       </div>
 
       <div className="bg-secondary/20 rounded-lg p-3 mb-3 flex-1 overflow-y-auto max-h-[300px]">
