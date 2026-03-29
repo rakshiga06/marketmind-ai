@@ -11,8 +11,8 @@ export const ChatWidget = () => {
   useEffect(() => {
     const fetchInsight = async () => {
       try {
-        // Find best watchlist stock to analyze
-        const pRes = await fetch("http://localhost:8000/api/v1/portfolio");
+        // Find best portfolio stock to analyze
+        const pRes = await fetch("http://127.0.0.1:8000/api/v1/portfolio");
         const pData = await pRes.json();
         const holdings = pData.holdings || [];
         
@@ -22,7 +22,7 @@ export const ChatWidget = () => {
         }
         setTargetSymbol(sym);
 
-        const res = await fetch(`http://localhost:8000/api/v1/chat/insights?symbol=${sym}`);
+        const res = await fetch(`http://127.0.0.1:8000/api/v1/chat/insights?symbol=${sym}`);
         const data = await res.json();
         if (data.insights) setInsight(data.insights);
         else setInsight("Unable to generate insights at the moment. Please check backend.");

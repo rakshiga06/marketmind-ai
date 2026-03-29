@@ -29,8 +29,6 @@ export default function ChartsPage() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  
   const [stockData, setStockData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +49,7 @@ export default function ChartsPage() {
     }
     const delay = setTimeout(async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/search?q=${searchQuery}`);
+        const res = await fetch(`http://127.0.0.1:8000/api/v1/search?q=${searchQuery}`);
         const data = await res.json();
         if (data.results) setSearchResults(data.results);
       } catch (e) {
@@ -66,7 +64,7 @@ export default function ChartsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/stockdata?symbol=${selectedStock}&timeframe=${selectedTimeframe}`);
+        const response = await fetch(`http://127.0.0.1:8000/api/v1/stockdata?symbol=${selectedStock}&timeframe=${selectedTimeframe}`);
         const result = await response.json();
         if (result.error) {
           setError(result.error);
@@ -327,77 +325,164 @@ export default function ChartsPage() {
           </div>
 
           {/* Pattern Intelligence */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-5">
-            <h3 className="font-semibold mb-3">Detected Patterns</h3>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold">
-                <JargonTerm term="Cup & Handle">Cup & Handle</JargonTerm>
-              </span>
-              <span className="text-xs text-muted-foreground">Confidence: <span className="text-gain font-mono">87%</span></span>
-            </div>
+          <PatternIntelligence symbol={selectedStock} />
+        </div>
+      </div>
+      
+      <DiscoveryModal />
+    </div>
+  );
+}
 
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-3">
-              <p className="text-sm text-muted-foreground">
-                This stock has been consolidating in a U-shape for 8 weeks and is now breaking out — this is classically bullish. 
-                The 'handle' phase suggests a final shakeout before the move.
-              </p>
-            </div>
+const PatternIntelligence = ({ symbol }: { symbol: string }) => {
+  const [discovery, setDiscovery] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <div className="text-center p-2 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Found</p>
-                <p className="text-sm font-bold font-mono">4 times</p>
-                <p className="text-[10px] text-muted-foreground">in 5 years</p>
-              </div>
-              <div className="text-center p-2 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Avg return</p>
-                <p className="text-sm font-bold font-mono text-gain">+14.2%</p>
-                <p className="text-[10px] text-muted-foreground">60 days later</p>
-              </div>
-              <div className="text-center p-2 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Win rate</p>
-                <p className="text-sm font-bold font-mono text-gain">75%</p>
-                <p className="text-[10px] text-muted-foreground">on this stock</p>
-              </div>
-            </div>
+  useEffect(() => {
+    const fetchDiscovery = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/api/v1/patterns/discovery/${symbol}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDiscovery(data);
+        } else {
+          setDiscovery(null);
+        }
+      } catch (e) {
+        setDiscovery(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDiscovery();
+  }, [symbol]);
 
-            <button onClick={() => setShowModal(true)} className="w-full py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors">
-              What should I do?
-            </button>
-          </motion.div>
+  if (loading) return (
+    <div className="glass-card p-5 animate-pulse">
+      <div className="h-4 w-32 bg-secondary rounded mb-4" />
+      <div className="h-20 bg-secondary rounded mb-4" />
+      <div className="grid grid-cols-3 gap-3">
+        <div className="h-12 bg-secondary rounded" />
+        <div className="h-12 bg-secondary rounded" />
+        <div className="h-12 bg-secondary rounded" />
+      </div>
+    </div>
+  );
+
+  if (!discovery) return (
+    <div className="glass-card p-5 text-center py-10">
+      <p className="text-sm text-muted-foreground mb-2">No historical patterns discovered for {symbol} yet.</p>
+      <p className="text-[10px] text-muted-foreground/60">Our engine is currently backtesting 2000+ stocks. Check back shortly.</p>
+    </div>
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card p-5 border-l-4 border-primary">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-sm">Most Successful Pattern (5Y)</h3>
+        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold uppercase tracking-wider">Live Engine Match</span>
+      </div>
+      
+      <div className="flex items-center gap-2 mb-3">
+        <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/30">
+          <JargonTerm term={discovery.pattern_name}>{discovery.pattern_name}</JargonTerm>
+        </span>
+        <span className="text-xs text-muted-foreground">Historical Confidence: <span className="text-gain font-mono">{discovery.confidence}%</span></span>
+      </div>
+
+      <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-3">
+        <p className="text-sm text-muted-foreground leading-relaxed italic">
+          "{discovery.explanation}"
+        </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="text-center p-2 bg-secondary/50 rounded-lg border border-border/30 shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Found</p>
+          <p className="text-base font-bold font-mono text-foreground">{discovery.found_count}</p>
+          <p className="text-[9px] text-muted-foreground">occurrences</p>
+        </div>
+        <div className="text-center p-2 bg-secondary/50 rounded-lg border border-border/30 shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Avg Return</p>
+          <p className={`text-base font-bold font-mono ${discovery.avg_return >= 0 ? "text-gain" : "text-loss"}`}>
+            {discovery.avg_return >= 0 ? "+" : ""}{discovery.avg_return}%
+          </p>
+          <p className="text-[9px] text-muted-foreground">in 60 days</p>
+        </div>
+        <div className="text-center p-2 bg-secondary/50 rounded-lg border border-border/30 shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase font-bold mb-0.5">Win Rate</p>
+          <p className="text-base font-bold font-mono text-gain">{discovery.win_rate}%</p>
+          <p className="text-[9px] text-muted-foreground">success rate</p>
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card p-6 max-w-md w-full"
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="font-bold text-lg mb-3">What does this mean for me?</h3>
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <span className="text-primary font-bold">1.</span>
-                <p className="text-sm text-muted-foreground"><strong>What happened:</strong> A Cup & Handle pattern formed over 8 weeks, suggesting the stock has found strong support and is preparing for an upward move.</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-primary font-bold">2.</span>
-                <p className="text-sm text-muted-foreground"><strong>Why it might matter:</strong> This pattern has a 75% success rate on this stock historically, with an average gain of 14.2% in the following 60 days.</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-primary font-bold">3.</span>
-                <p className="text-sm text-muted-foreground"><strong>What some investors do:</strong> Some investors see this as a buying opportunity, while others wait for confirmation of the breakout with increased volume. This is not financial advice.</p>
-              </div>
-            </div>
-            <button onClick={() => setShowModal(false)} className="w-full mt-4 py-2 rounded-lg bg-secondary text-sm font-medium hover:bg-secondary/80 transition-colors">
-              Got it
-            </button>
-          </motion.div>
+      <button onClick={() => window.dispatchEvent(new CustomEvent('open-discovery-modal', { detail: discovery }))} className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold transition-all shadow-lg shadow-primary/20">
+        Analyze Strategic Move
+      </button>
+    </motion.div>
+  );
+};
+
+const DiscoveryModal = () => {
+  const [data, setData] = useState<any>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpen = (e: any) => {
+      setData(e.detail);
+      setIsOpen(true);
+    };
+    window.addEventListener('open-discovery-modal', handleOpen);
+    return () => window.removeEventListener('open-discovery-modal', handleOpen);
+  }, []);
+
+  if (!isOpen || !data) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsOpen(false)}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass-card p-6 max-w-md w-full border border-primary/20"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-primary/20 rounded-lg text-primary">
+            <Info className="w-5 h-5" />
+          </div>
+          <h3 className="font-bold text-xl">Historical Strategy Analysis</h3>
         </div>
-      )}
+        
+        <div className="space-y-4">
+          <div className="p-3 bg-secondary/50 rounded-lg border border-border/50">
+            <p className="text-xs text-muted-foreground font-bold uppercase mb-1">Stock Scenario</p>
+            <p className="text-sm font-medium">A <span className="text-primary font-bold">{data.pattern_name}</span> has been detected on <span className="font-bold underline">{data.symbol}</span> charts.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
+              <p className="text-sm text-muted-foreground"><strong>Performance Data:</strong> In the last 5 years, this specific setup appeared {data.found_count} times on {data.symbol}.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">2</span>
+              <p className="text-sm text-muted-foreground"><strong>The "Edge":</strong> Out of those occurrences, {data.win_rate}% reached a profit target of +10% within 60 days.</p>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">3</span>
+              <p className="text-sm text-muted-foreground"><strong>AI Reasoning:</strong> {data.explanation}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-6 flex flex-col gap-2">
+          <button onClick={() => setIsOpen(false)} className="w-full py-2.5 rounded-lg bg-secondary text-sm font-bold hover:bg-secondary/80 transition-colors">
+            Close Analysis
+          </button>
+          <p className="text-[10px] text-center text-muted-foreground/60 italic">MarketMind Engine v1.0 • Not Financial Advice</p>
+        </div>
+      </motion.div>
     </div>
   );
 }

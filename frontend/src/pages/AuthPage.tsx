@@ -28,7 +28,7 @@ const AuthPage = () => {
         ? { "Content-Type": "application/x-www-form-urlencoded" } 
         : { "Content-Type": "application/json" };
         
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
+      const res = await fetch(`http://127.0.0.1:8000${endpoint}`, {
         method: "POST",
         headers,
         body
@@ -41,7 +41,7 @@ const AuthPage = () => {
       }
       
       // Get user profile
-      const userRes = await fetch("http://localhost:8000/api/v1/auth/me", {
+      const userRes = await fetch("http://127.0.0.1:8000/api/v1/auth/me", {
         headers: { Authorization: `Bearer ${data.access_token}` }
       });
       const userData = await userRes.json();

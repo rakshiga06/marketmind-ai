@@ -13,7 +13,7 @@ export const PortfolioSummary = () => {
   const fetchPortfolio = async () => {
     if (!token) return;
     try {
-      const res = await fetch("http://localhost:8000/api/v1/portfolio", {
+      const res = await fetch("http://127.0.0.1:8000/api/v1/portfolio", {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -22,7 +22,7 @@ export const PortfolioSummary = () => {
       const live: Record<string, any> = {};
       await Promise.all((data.holdings || []).map(async (h: any) => {
         try {
-          const fres = await fetch(`http://localhost:8000/api/v1/fundamentals?symbol=${h.symbol}`);
+          const fres = await fetch(`http://127.0.0.1:8000/api/v1/fundamentals?symbol=${h.symbol}`);
           const fdata = await fres.json();
           if (!fdata.error) live[h.symbol] = fdata;
         } catch(e) {}
@@ -39,7 +39,7 @@ export const PortfolioSummary = () => {
     e.stopPropagation();
     if (!token) return;
     try {
-      await fetch(`http://localhost:8000/api/v1/portfolio/${symbol}`, {
+      await fetch(`http://127.0.0.1:8000/api/v1/portfolio/${symbol}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
