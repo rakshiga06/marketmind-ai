@@ -340,13 +340,15 @@ Provide a 3-bullet-point summary of the stock's current momentum, recent filings
         
     try:
         import google.generativeai as genai
+        import asyncio
+        await asyncio.sleep(1) # Add 1 second delay 
         genai.configure(api_key=gemini_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         
         response = model.generate_content(prompt)
         return {"insights": response.text}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e), "insights": f"Analysis unavailable — retrying. Error: {str(e)}"}
 
 @app.get("/api/v1/radar/signals")
 def get_radar_signals_with_historical(symbol: str = None, symbols: str = None):

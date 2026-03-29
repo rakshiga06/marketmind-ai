@@ -38,27 +38,29 @@ Generate a JSON response with exactly this structure:
 }}
 Keep it strictly factual and actionable.
 """
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key or "your_" in openai_key:
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key or "your_" in gemini_key:
         return {
             "pros": ["Company has an active market presence.", "Data indicates potential for long-term growth."],
             "cons": ["Valuation may be high relative to book value.", "Requires careful tracking of quarterly results."],
             "peers": ["Competitor A", "Competitor B", "Competitor C"],
-            "summary": "This is a machine-generated placeholder because OPENAI_API_KEY is not configured."
+            "summary": "This is a machine-generated placeholder because GEMINI_API_KEY is not configured."
         }
 
     try:
-        from openai import AsyncOpenAI
+        import google.generativeai as genai
         import json
-        client = AsyncOpenAI(api_key=openai_key)
-        response = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={ "type": "json_object" },
-            max_tokens=300,
-            temperature=0.2
-        )
-        content = response.choices[0].message.content
-        return json.loads(content)
+        import asyncio
+        await asyncio.sleep(1) # Delay between concurrent page loads
+        
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```json"): text = text[7:-3].strip()
+        elif text.startswith("```"): text = text[3:-3].strip()
+        
+        return json.loads(text)
     except Exception as e:
         return {"error": str(e), "pros": [], "cons": [], "peers": [], "summary": "Error analyzing data."}

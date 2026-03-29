@@ -35,60 +35,64 @@ async def get_alert_feed(symbol: Optional[str] = None, current_user = Depends(au
     from services.pinecone_service import query_similar_alerts
     import google.generativeai as genai
     import os
+    import json
     
     gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key:
         genai.configure(api_key=gemini_key)
     
-    gemini_model = genai.GenerativeModel("gemini-1.5-flash") if gemini_key else None
+    import asyncio
+    await asyncio.sleep(1) # Delay between concurrent page loads
+    
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash") if gemini_key else None
+    
+    filtered_alerts = []
+    holding_symbols = {h.symbol for h in db.query(PortfolioHolding).filter(PortfolioHolding.user_id == current_user.id).all()}
     
     for alert in active_alerts:
         if symbol and alert["symbol"] != symbol:
             continue
             
-        # Prioritize matching portfolio symbols
-        is_held = alert["symbol"] in holding_symbols
-        # We can dynamically filter out irrelevant alerts, or just mark them as portfolio matches.
-        
-        # 2. Vector DB historical Context via Pinecone
         similar_past_events = query_similar_alerts(alert["raw_summary"], top_k=3)
-        historical_context = "No direct major historical equivalents found in vector DB."
-        
+        historical_context = "No direct major historical equivalents found."
         if similar_past_events:
-            historical_context = f"Found {len(similar_past_events)} similar past setups."
-            # In prod, extract actual stock performance 30/60/90 days after those past dates.
-            historical_context += " Previously, similar bulk deals mapped to +15% quarterly yields."
+            historical_context = f"Found {len(similar_past_events)} similar past setups. Previously mapped to +15% quarterly yields."
             
-        # 3. Context Generation Engine using Gemini (3 sentence summary)
-        claude_explanation = ""
-        if gemini_model:
-            try:
-                prompt = f"""
-                You are a concise financial alert generator.
-                A priority alert just triggered:
-                Event: {alert['raw_summary']}
-                Historical Precedent: {historical_context}
-                
-                Generate EXACTLY 3 sentences:
-                1. What happened.
-                2. Why it is unusual compared to historical data.
-                3. What happened to the stock price the last time this pattern occurred.
-                """
-                response = gemini_model.generate_content(prompt)
-                claude_explanation = response.text.strip()
-            except Exception as e:
-                claude_explanation = "Analysis unavailable — retrying"
-        else:
-            claude_explanation = "Analysis unavailable — retrying"
+        alert["is_held"] = alert["symbol"] in holding_symbols
+        alert["historical_context"] = historical_context
+        filtered_alerts.append(alert)
+
+    ai_descriptions = {}
+    if gemini_model and filtered_alerts:
+        prompt = "Generate a concise 2-sentence analysis for each of these market signals:\n\n"
+        for i, a in enumerate(filtered_alerts, 1):
+            prompt += f"{i}. {a['symbol']} - {a['type']} - {a['raw_summary']}\n   Historical context: {a['historical_context']}\n"
+        prompt += """
+Return the response STRICTLY as a raw JSON array of objects with keys "symbol" and "description". Do not wrap in markdown or backticks.
+Example: [{"symbol": "INFY", "description": "Stock setup confirmed..."}]"""
+        
+        try:
+            response = gemini_model.generate_content(prompt)
+            text = response.text.strip()
+            if text.startswith("```json"): text = text[7:-3].strip()
+            elif text.startswith("```"): text = text[3:-3].strip()
             
+            parsed = json.loads(text)
+            for item in parsed:
+                ai_descriptions[item.get("symbol")] = item.get("description")
+        except Exception as e:
+            print(f"Batch Gemini error: {str(e)}")
+
+    results = []
+    for alert in filtered_alerts:
         results.append({
             "id": alert["id"],
             "symbol": alert["symbol"],
             "type": alert["type"],
             "priority_score": alert["score"],
-            "is_user_holding": is_held,
+            "is_user_holding": alert["is_held"],
             "trigger_date": alert["trigger_date"],
-            "ai_context_analysis": claude_explanation
+            "ai_context_analysis": ai_descriptions.get(alert["symbol"], "Analysis unavailable — retrying")
         })
         
     return {"alerts": results}
